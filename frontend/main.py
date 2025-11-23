@@ -2,7 +2,7 @@ import connect_db
 import log
 from flask import render_template, request, Flask
 
-app = Flask(__name__)
+app = Flask(__name__,template_folder="../templates")
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -16,6 +16,20 @@ def index():
     amount = ""
     from_currency = "USD"
     to_currency = "VND"
+
+    if request.method == "GET":
+        connect_db.create_tables()
+        connect_db.update_db()
+
+        return render_template("index.html", 
+                               rates=rates,
+                               amount=amount,
+                               from_currency=from_currency,
+                               to_currency=to_currency,
+                               result=result,
+                               error=error,
+                               history_labels=history_labels,
+                               history_data=history_data)
 
     if request.method == "POST":
         try:
