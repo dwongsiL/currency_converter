@@ -1,0 +1,182 @@
+import os
+import psycopg2
+import log
+import requests
+
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+#DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DN_NAME", "currency_converter")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+
+
+
+
+def request_rate():
+    money = ["USD", "VND", "JPY"]
+    base = ["VND", "USD", "JPY"]
+    rate = {}
+    for item in money:
+        for baseitem in base:
+            if item == baseitem:
+                continue
+            url = f"https://hexarate.paikama.co/api/rates/latest/{baseitem}?target={item}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                cc_data = data["data"]
+                cc_data.pop("base")
+                rate.setdefault(baseitem, []).append(cc_data)
+                log.logger.info(f"Rate for {baseitem} to {item}: {cc_data}")
+            else:
+                log.logger.error(f"Failed to get rate for {baseitem} to {item}: {response.status_code}")
+    return rate
+
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host = DB_HOST,
+            #port = DB_PORT,
+            database = DB_NAME,
+            user = DB_USER,
+            password = DB_PASSWORD
+        )
+        return conn
+    except Exception as e:
+        log.logger.error(f"Error connecting to the database: {str(e)}")
+        return None
+
+def create_tables():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Create currency_usd table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS currency_usd (
+                id SERIAL PRIMARY KEY,
+                time TIMESTAMP NOT NULL,
+                currency_usd NUMERIC NOT NULL,
+                rate_vnd NUMERIC NOT NULL,
+                rate_jpy NUMERIC NOT NULL
+            );
+        ''')
+
+        # Create currency_vnd table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS currency_vnd (
+                id SERIAL PRIMARY KEY,
+                time TIMESTAMP NOT NULL,
+                currency_vnd NUMERIC NOT NULL,
+                rate_usd NUMERIC NOT NULL,
+                rate_jpy NUMERIC NOT NULL
+            );
+        ''')
+
+        # Create currency_jpy table
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS currency_jpy (
+                id SERIAL PRIMARY KEY,
+                time TIMESTAMP NOT NULL,
+                currency_jpy NUMERIC NOT NULL,
+                rate_usd NUMERIC NOT NULL,
+                rate_vnd NUMERIC NOT NULL
+            );
+        ''')
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        log.logger.info("Tables created successfully")
+    except Exception as e:
+        log.logger.error(f"Error creating tables: {str(e)}")
+
+def update_db():
+    try:
+        db = request_rate()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Process USD
+        if "USD" in db:
+            rates = db["USD"]
+            rate_vnd = next((item['mid'] for item in rates if item['target'] == 'VND'), None)
+            rate_jpy = next((item['mid'] for item in rates if item['target'] == 'JPY'), None)
+            timestamp = next((item['timestamp'] for item in rates), None)
+            
+            if rate_vnd and rate_jpy and timestamp:
+                cur.execute(
+                    '''
+                    INSERT INTO currency_usd (time, currency_usd, rate_vnd, rate_jpy)
+                    VALUES (%s, 1, %s, %s)
+                    ''',
+                    (timestamp, rate_vnd, rate_jpy)
+                )
+
+        # Process VND
+        if "VND" in db:
+            rates = db["VND"]
+            rate_usd = next((item['mid'] for item in rates if item['target'] == 'USD'), None)
+            rate_jpy = next((item['mid'] for item in rates if item['target'] == 'JPY'), None)
+            timestamp = next((item['timestamp'] for item in rates), None)
+            
+            if rate_usd and rate_jpy and timestamp:
+                cur.execute(
+                    '''
+                    INSERT INTO currency_vnd (time, currency_vnd, rate_usd, rate_jpy)
+                    VALUES (%s, 1, %s, %s)
+                    ''',
+                    (timestamp, rate_usd, rate_jpy)
+                )
+
+        # Process JPY
+        if "JPY" in db:
+            rates = db["JPY"]
+            rate_usd = next((item['mid'] for item in rates if item['target'] == 'USD'), None)
+            rate_vnd = next((item['mid'] for item in rates if item['target'] == 'VND'), None)
+            timestamp = next((item['timestamp'] for item in rates), None)
+            
+            if rate_usd and rate_vnd and timestamp:
+                cur.execute(
+                    '''
+                    INSERT INTO currency_jpy (time, currency_jpy, rate_usd, rate_vnd)
+                    VALUES (%s, 1, %s, %s)
+                    ''',
+                    (timestamp, rate_usd, rate_vnd)
+                )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        log.logger.info("Database updated successfully")
+    except Exception as e:
+        log.logger.error(f"Error updating database: {str(e)}")
+
+def get_db_data(a):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        if a == "USD":
+            cur.execute("SELECT * FROM currency_usd ORDER BY time DESC")
+            data = cur.fetchall()
+            return data
+        elif a == "VND":
+            cur.execute("SELECT * FROM currency_vnd ORDER BY time DESC")
+            data = cur.fetchall()
+            return data
+        elif a == "JPY":
+            cur.execute("SELECT * FROM currency_jpy ORDER BY time DESC")
+            data = cur.fetchall()
+            return data
+        else:
+            return None
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        log.logger.info("Database data retrieved successfully")
+    except Exception as e:
+        log.logger.error(f"Error getting database data: {str(e)}")

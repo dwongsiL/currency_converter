@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyFlow - Dashboard Tỷ Giá</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* CSS: Trang trí giao diện cho đẹp và hiện đại */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+        
+        /* Layout chia 2 cột: Trái nhập liệu, Phải biểu đồ */
+        .dashboard-container { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; max-width: 1200px; width: 100%; align-items: start; }
+        
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        h2 { color: #1a73e8; margin-top: 0; font-size: 1.5rem; border-bottom: 2px solid #f1f3f4; padding-bottom: 15px; margin-bottom: 20px; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; color: #5f6368; font-weight: 600; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #dadce0; border-radius: 8px; font-size: 16px; outline: none; transition: border 0.3s; box-sizing: border-box; }
+        input:focus, select:focus { border-color: #1a73e8; }
+        
+        .currency-row { display: flex; align-items: center; gap: 10px; }
+        .arrow-icon { font-size: 1.2rem; color: #5f6368; }
+        
+        button { 
+            width: 100%; margin-top: 10px; padding: 14px; 
+            background: linear-gradient(45deg, #1a73e8, #4285f4); color: white; 
+            border: none; border-radius: 8px; font-size: 16px; font-weight: bold; 
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; 
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(26, 115, 232, 0.3); }
+        
+        /* Kết quả và Lỗi */
+        .result-box { margin-top: 25px; padding: 20px; background: #e8f0fe; color: #1a73e8; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: bold; border: 1px solid #d2e3fc; }
+        .error-box { margin-top: 25px; padding: 20px; background: #fce8e6; color: #c5221f; border-radius: 8px; text-align: center; border: 1px solid #fad2cf; }
+        
+        .footer { margin-top: 20px; font-size: 0.85rem; color: #9aa0a6; text-align: center; }
+
+        /* Responsive: Gộp thành 1 cột trên điện thoại */
+        @media (max-width: 768px) { .dashboard-container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <div class="card">
+        <h2>💱 Chuyển Đổi Tiền Tệ</h2>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label>Số tiền cần đổi:</label>
+                <input type="number" name="amount" placeholder="Nhập số tiền..." required step="0.01" value="{{ request.form.amount }}">
+            </div>
+
+            <div class="form-group">
+                <label>Chọn cặp tiền tệ:</label>
+                <div class="currency-row">
+                    <div style="flex: 1;">
+                        <select name="from_currency">
+                            {% for cur in rates %}
+                            <option value="{{ cur }}" {% if request.form.from_currency == cur %}selected{% endif %}>{{ cur }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="arrow-icon">➡️</div>
+                    <div style="flex: 1;">
+                        <select name="to_currency">
+                            {% for cur in rates %}
+                            <option value="{{ cur }}" {% if request.form.to_currency == cur or (not request.form.to_currency and cur == 'VND') %}selected{% endif %}>{{ cur }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit">Tính Toán & Vẽ Biểu Đồ</button>
+        </form>
+
+        {% if result %}
+        <div class="result-box">
+            {{ result }}
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="error-box">
+            ⚠️ {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="footer">
+            Backend API: {{ backend_url }}
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>📈 Xu Hướng Tỷ Giá (7 Ngày)</h2>
+        <div style="position: relative; height: 300px; width: 100%">
+            <canvas id="rateChart"></canvas>
+        </div>
+        <p style="text-align: center; color: #5f6368; margin-top: 20px; font-size: 0.9em;">
+            *Dữ liệu mang tính chất giả lập phục vụ mục đích học tập DevSecOps.
+        </p>
+    </div>
+</div>
+
+<script>
+    // --- PHẦN JAVASCRIPT ĐỂ VẼ BIỂU ĐỒ ---
+    
+    // 1. Nhận dữ liệu từ Python (Flask) thông qua Jinja2 template
+    // 'tojson' giúp chuyển List Python thành Array Javascript an toàn
+    const chartData = {{ history_data | tojson }};
+    const chartLabels = {{ history_labels | tojson }};
+    
+    // Lấy loại tiền đang đổi sang (để hiện tên lên biểu đồ)
+    const targetCurrency = "{{ request.form.to_currency or 'VND' }}";
+
+    // 2. Cấu hình Chart.js
+    const ctx = document.getElementById('rateChart').getContext('2d');
+    
+    // Kiểm tra nếu có dữ liệu thì mới vẽ
+    if (chartData && chartData.length > 0) {
+        new Chart(ctx, {
+            type: 'line', // Dạng biểu đồ đường
+            data: {
+                labels: chartLabels, // Trục hoành (Ngày)
+                datasets: [{
+                    label: `Biến động giá trị ${targetCurrency}`,
+                    data: chartData, // Trục tung (Giá trị tiền)
+                    borderColor: '#1a73e8', // Màu đường kẻ xanh Google
+                    backgroundColor: 'rgba(26, 115, 232, 0.1)', // Màu nền mờ
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#1a73e8',
+                    pointRadius: 5,
+                    fill: true, // Tô màu vùng dưới đường
+                    tension: 0.4 // Độ cong mượt (0 là đường thẳng)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                interaction: {
+                    mode: 'nearest', axis: 'x', intersect: false
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false, // Để biểu đồ tập trung vào vùng biến động
+                        grid: { color: '#f1f3f4' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
