@@ -21,7 +21,7 @@ jobs:
                 scan-ref: "."
                 format: "table"
                 severity: "CRITICAL,HIGH"
-                exit-zero: true
+                exit-zero: 1
                 ignore-unfixed: true
 
             - name: Build Docker Image
@@ -34,10 +34,13 @@ jobs:
                 image-ref: ${{secrets.HARBOR_USERNAME}}/${{env.IMAGE_NAME}}:${{github.sha}}
                 format: "table"
                 severity: "CRITICAL,HIGH"
-                exit-zero: true
+                exit-zero: 1
                 ignore-unfixed: true
                 vuln-type: "os,library"
-
+            
+            - name: Report Status
+              if: always()
+              run: echo "Security scan completed"
             - name: Login to Harbor 
               uses: docker/login-action@v2
               with:
