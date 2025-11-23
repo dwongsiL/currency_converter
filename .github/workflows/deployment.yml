@@ -20,7 +20,7 @@ jobs:
                 scan-type: "fs"
                 scan-ref: "."
                 format: "table"
-                severity: "CRITICAL, HIGH"
+                severity: "CRITICAL,HIGH"
                 exit-zero: true
                 ignore-unfixed: true
 
@@ -31,12 +31,12 @@ jobs:
             - name: Run Trivy 
               uses: aquasecurity/trivy-action@master
               with:
-                scan-type: "image"
-                scan-ref: "currency-converter"
+                image-ref: ${{secrets.HARBOR_USERNAME}}/${{env.IMAGE_NAME}}:${{github.sha}}
                 format: "table"
-                severity: "CRITICAL, HIGH"
+                severity: "CRITICAL,HIGH"
                 exit-zero: true
                 ignore-unfixed: true
+                vuln-type: "os,library"
 
             - name: Login to Harbor 
               uses: docker/login-action@v2
