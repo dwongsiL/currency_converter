@@ -7,7 +7,7 @@ on:
         branches: ["main", "master"]
 env:
     HARBOR_REGISTRY: registry.dwong.space
-    IMAGE_NAME: currency-converter
+    IMAGE_NAME: currency-converter/money-converter
 jobs:
     build:
         runs-on: ubuntu-latest
