@@ -37,12 +37,12 @@ jobs:
                 docker build -f docker/Dockerfile -t ${{env.HARBOR_REGISTRY}}/${{env.IMAGE_NAME}}:${{github.sha}} .
             
             - name: Run Trivy 
-              uses: aquasecurity/trivy-action@master
+              uses: aquasecurity/trivy-action@0.29.0
               with:
                 image-ref: ${{ env.HARBOR_REGISTRY }}/${{env.IMAGE_NAME}}:${{github.sha}}
                 format: "table"
                 severity: "CRITICAL,HIGH"
-                exit-zero: 1
+                exit-code: 1
                 ignore-unfixed: true
                 vuln-type: "os,library"
             
