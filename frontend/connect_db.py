@@ -2,6 +2,7 @@ import os
 import psycopg2
 import log
 import requests
+from datetime import datetime, timedelta
 
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
