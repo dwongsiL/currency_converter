@@ -177,7 +177,7 @@ def get_db_data(a):
     conn = get_db_connection()
     if not conn:
         return [],[]
-
+    cur = conn.cursor()
     try:
         cur.execute("SELECT to_regclass(%s)", (table_name,))
         if cur.fetchone()[0] is None:
