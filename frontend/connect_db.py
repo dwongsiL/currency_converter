@@ -17,12 +17,18 @@ def request_rate():
     money = ["USD", "VND", "JPY"]
     base = ["VND", "USD", "JPY"]
     rate = {}
+    header = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://google.com",
+    }
     for item in money:
         for baseitem in base:
             if item == baseitem:
                 continue
             url = f"https://hexarate.paikama.co/api/rates/latest/{baseitem}?target={item}"
-            response = requests.get(url)
+            response = requests.get(url, headers=header, timeout=10 )
             if response.status_code == 200:
                 data = response.json()
                 cc_data = data["data"]
@@ -180,3 +186,43 @@ def get_db_data(a):
         log.logger.info("Database data retrieved successfully")
     except Exception as e:
         log.logger.error(f"Error getting database data: {str(e)}")
+
+def process_db():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT MAX(time) FROM currency_usd")
+            row = cur.fetchall()
+            last_time = row[0] if row else None
+            now = datetime.datetime.now()
+
+            should_update = False
+
+            if not last_time:
+                log.logger.info("No data in database, updating...")
+                should_update = True
+            elif (now -last_time) > timedelta(days=1):
+                log.logger.info("Data is older than 1 day, updating...")
+                should_update = True
+            else:
+                log.logger.info("Data is up to date, no update needed")
+                
+            if should_update:
+                update_db()
+                conn.commit()
+                log.logger.info("Database updated successfully")
+            else:
+                log.logger.info("Database is up to date, no update needed")
+        except Exception as e:
+            log.logger.error(f"Error processing database: {str(e)}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
+    except Exception as e:
+        log.logger.error(f"Error processing database: {str(e)}")

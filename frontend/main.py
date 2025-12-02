@@ -2,8 +2,11 @@ import connect_db
 import log
 from flask import render_template, request, Flask
 
-app = Flask(__name__,template_folder="../templates")
 
+connect_db.create_tables()
+connect_db.process_db()
+
+app = Flask(__name__,template_folder="../templates")
 @app.route("/", methods=["GET", "POST"])
 def index():
     error = None
@@ -18,8 +21,6 @@ def index():
     to_currency = "VND"
 
     if request.method == "GET":
-        connect_db.create_tables()
-        connect_db.update_db()
 
         return render_template("index.html", 
                                rates=rates,
