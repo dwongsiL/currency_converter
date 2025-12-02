@@ -162,32 +162,54 @@ def update_db():
         log.logger.error(f"Error updating database: {str(e)}")
 
 def get_db_data(a):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        if a == "USD":
-            cur.execute("SELECT * FROM currency_usd ORDER BY time DESC")
-            data = cur.fetchall()
-            return data
-        elif a == "VND":
-            cur.execute("SELECT * FROM currency_vnd ORDER BY time DESC")
-            data = cur.fetchall()
-            return data
-        elif a == "JPY":
-            cur.execute("SELECT * FROM currency_jpy ORDER BY time DESC")
-            data = cur.fetchall()
-            return data
-        else:
-            return None
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        log.logger.info("Database data retrieved successfully")
-    except Exception as e:
-        log.logger.error(f"Error getting database data: {str(e)}")
+    labels = []
+    values = []
 
+    table_map = {
+        "USD": "currency_usd",
+        "VND": "currency_vnd",
+        "JPY": "currency_jpy"
+    }
+
+    table_name = table_map.get(a)
+    if not table_name:
+        return [],[]
+    conn = get_db_connection()
+    if not conn:
+        return [],[]
+
+    try:
+        cur.execute("SELECT to_regclass(%s)", (table_name,))
+        if cur.fetchone()[0] is None:
+            log.logger.error(f"Table {table_name} does not exist")
+            return [],[]
+        
+        query = f"""
+            SELECT to_char(time, 'DD/MM HH24:MI'), rate 
+            FROM {table_name} 
+            WHERE time >= NOW() - INTERVAL '7 days' 
+            ORDER BY time ASC
+        """
+        cur.execute(query)
+        rows = cur.fetchall()
+        for row in rows:
+            labels.append(row[0])
+            values.append(float(row[1]))
+        log.logger.info(f"Data retrieved successfully: {labels}, {values}")
+    except Exception as e:
+        log.logger.error(f"Error retrieving data: {str(e)}")
+
+    finally:
+        if conn:
+            conn.close()
+    return labels, values
+        
+
+        
+    
+
+
+    
 def process_db():
     try:
         conn = get_db_connection()

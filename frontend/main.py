@@ -21,16 +21,18 @@ def index():
     to_currency = "VND"
 
     if request.method == "GET":
-
+        to_cur = request.args.get('to_currency', 'VND')
+        from_cur = request.args.get('from_currency', 'USD')
+        chart_labels, chart_data = connect_db.get_db_data(from_cur)
         return render_template("index.html", 
                                rates=rates,
                                amount=amount,
-                               from_currency=from_currency,
-                               to_currency=to_currency,
+                               from_currency=from_cur,
+                               to_currency=to_cur,
                                result=result,
                                error=error,
-                               history_labels=history_labels,
-                               history_data=history_data)
+                               history_labels=chart_labels,
+                               history_data=chart_data)
 
     if request.method == "POST":
         try:
@@ -43,9 +45,10 @@ def index():
                 result = f"{amount}{from_currency} = {amount}{to_currency}"
             else:
                 # Get historical data for the source currency
-                db_data = connect_db.get_db_data(from_currency)
-
-                if db_data:
+                data_labels, data_values = connect_db.get_db_data(from_currency)
+                log.logger.info(f"Data retrieved successfully: {data_labels}, {data_values}")
+               
+                if data_values:
                     # Determine which column contains the rate for 'to_currency'
                     # Tables structure from connect_db.py:
                     # currency_usd: id(0), time(1), currency_usd(2), rate_vnd(3), rate_jpy(4)
@@ -70,27 +73,28 @@ def index():
                     
                     if rate_index != -1:
                         # Get latest rate (first row)
-                        latest_row = db_data[0]
+                        latest_row = data_values[0]
                         rate = float(latest_row[rate_index])
                         converter_amount = amount * rate
                         result = f"{amount:,.2f} {from_currency} = {converter_amount:,.2f} {to_currency}"
 
                         # Prepare chart data (last 7 records)
                         # Data comes sorted by time DESC
-                        chart_rows = db_data[:7]
+                        chart_labels = data_labels
+                        chart_data = data_values
 
-                        for row in chart_rows:
-                            # row[1] is timestamp
-                            ts = row[1]
-                            if isinstance(ts, str):
-                                # In case it's a string, though psycopg2 usually returns datetime
-                                pass 
-                            history_labels.append(ts.strftime('%d/%m'))
-                            history_data.append(float(row[rate_index]))
+                        # for row in chart_rows:
+                        #     # row[1] is timestamp
+                        #     ts = row[1]
+                        #     if isinstance(ts, str):
+                        #         # In case it's a string, though psycopg2 usually returns datetime
+                        #         pass 
+                        #     history_labels.append(ts.strftime('%d/%m'))
+                        #     history_data.append(float(row[rate_index]))
                         
-                        # Reverse to show chronological order (Oldest -> Newest)
-                        history_labels.reverse()
-                        history_data.reverse()
+                        # # Reverse to show chronological order (Oldest -> Newest)
+                        # history_labels.reverse()
+                        # history_data.reverse()
                     else:
                         error = "No data available for this currency."
         except Exception as e:
@@ -104,8 +108,8 @@ def index():
                            to_currency=to_currency,
                            result=result,
                            error=error,
-                           history_labels=history_labels,
-                           history_data=history_data)
+                           history_labels=chart_labels,
+                           history_data=chart_data)
     
 if __name__ == "__main__":
 
