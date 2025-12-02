@@ -199,7 +199,7 @@ def process_db():
             cur.execute("SELECT MAX(time) FROM currency_usd")
             row = cur.fetchall()
             last_time = row[0] if row else None
-            now = datetime.datetime.now()
+            now = datetime.now()
 
             should_update = False
 
