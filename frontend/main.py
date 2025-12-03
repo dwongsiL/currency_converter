@@ -47,58 +47,59 @@ def index():
                 result = f"{amount}{from_currency} = {amount}{to_currency}"
             else:
                 # Get historical data for the source currency
-                data_labels, data_values = connect_db.get_db_data(from_currency,to_currency)
-                log.logger.info(f"Data retrieved successfully: {data_labels}, {data_values}")
+                history_labels, history_data = connect_db.get_db_data(from_currency,to_currency)
+                log.logger.info(f"Data retrieved successfully: {history_labels}, {history_data}")
                
-                if data_values:
+                if history_data:
                     # Determine which column contains the rate for 'to_currency'
                     # Tables structure from connect_db.py:
                     # currency_usd: id(0), time(1), currency_usd(2), rate_vnd(3), rate_jpy(4)
                     # currency_vnd: id(0), time(1), currency_vnd(2), rate_usd(3), rate_jpy(4)
                     # currency_jpy: id(0), time(1), currency_jpy(2), rate_usd(3), rate_vnd(4) 
-                    rate_index = -1
-                    if from_currency == "USD":
-                        if to_currency == "VND":
-                            rate_index = 3
-                        elif to_currency == "JPY":
-                            rate_index = 4
-                    elif from_currency == "VND":
-                        if to_currency == "USD":
-                            rate_index = 3
-                        elif to_currency == "JPY":
-                            rate_index = 4
-                    elif from_currency == "JPY":
-                        if to_currency == "USD":
-                            rate_index = 3
-                        elif to_currency == "VND":
-                            rate_index = 4
+                    # rate_index = -1
+                    # if from_currency == "USD":
+                    #     if to_currency == "VND":
+                    #         rate_index = 3
+                    #     elif to_currency == "JPY":
+                    #         rate_index = 4
+                    # elif from_currency == "VND":
+                    #     if to_currency == "USD":
+                    #         rate_index = 3
+                    #     elif to_currency == "JPY":
+                    #         rate_index = 4
+                    # elif from_currency == "JPY":
+                    #     if to_currency == "USD":
+                    #         rate_index = 3
+                    #     elif to_currency == "VND":
+                    #         rate_index = 4
                     
-                    if rate_index != -1:
+                    # if rate_index != -1:
                         # Get latest rate (first row)
-                        latest_row = data_values[-1]
-                        #rate = float(latest_row[rate_index])
-                        converter_amount = amount * rate
-                        result = f"{amount:,.2f} {from_currency} = {converter_amount:,.2f} {to_currency}"
+                    latest_row = history_data[-1]
+                    #rate = float(latest_row[rate_index])
+                    converter_amount = amount * latest_row
+                    result = f"{amount:,.2f} {from_currency} = {converter_amount:,.2f} {to_currency}"
 
-                        # Prepare chart data (last 7 records)
-                        # Data comes sorted by time DESC
-                        history_data = data_values[-7:]
-                        history_labels = data_labels[-7:]
+                    # Prepare chart data (last 7 records)
+                    # Data comes sorted by time DESC
+                    history_data = history_data[-7:]
+                    history_labels = history_labels[-7:]
 
-                        # for row in chart_rows:
-                        #     # row[1] is timestamp
-                        #     ts = row[1]
-                        #     if isinstance(ts, str):
-                        #         # In case it's a string, though psycopg2 usually returns datetime
-                        #         pass 
-                        #     history_labels.append(ts.strftime('%d/%m'))
-                        #     history_data.append(float(row[rate_index]))
+                    #     # for row in chart_rows:
+                    #     #     # row[1] is timestamp
+                    #     #     ts = row[1]
+                    #     #     if isinstance(ts, str):
+                    #     #         # In case it's a string, though psycopg2 usually returns datetime
+                    #     #         pass 
+                    #     #     history_labels.append(ts.strftime('%d/%m'))
+                    #     #     history_data.append(float(row[rate_index]))
                         
-                        # # Reverse to show chronological order (Oldest -> Newest)
-                        # history_labels.reverse()
-                        # history_data.reverse()
-                    else:
-                        error = "No data available for this currency."
+                    #     # # Reverse to show chronological order (Oldest -> Newest)
+                    #     # history_labels.reverse()
+                    #     # history_data.reverse()
+
+                else:
+                    error = "No data available for this currency."
         except Exception as e:
             log.logger.error(f"Error in POST request: {str(e)}")
             error = "An error occurred during calculation."
