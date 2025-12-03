@@ -31,8 +31,8 @@ def index():
                                to_currency=to_cur,
                                result=result,
                                error=error,
-                               history_labels=chart_labels,
-                               history_data=chart_data)
+                               history_labels=history_labels,
+                               history_data=history_data)
 
     if request.method == "POST":
         try:

@@ -185,8 +185,16 @@ def get_db_data(a,b):
             log.logger.error(f"Table {table_name} does not exist")
             return [],[]
         
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = %s AND column_name = %s",
+            (table_name, column_name)
+        )
+        if not cur.fetchone():
+            log.logger.error(f"Column {column_name} does not exist in table {table_name}")
+            return [],[]
+
         query = f"""
-            SELECT to_char(time, 'DD/MM HH24:MI'), rate 
+            SELECT to_char(time, 'DD/MM HH24:MI'), {column_name} 
             FROM {table_name} 
             WHERE time >= NOW() - INTERVAL '7 days' 
             ORDER BY time ASC
