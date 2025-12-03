@@ -45,7 +45,7 @@ def index():
                 result = f"{amount}{from_currency} = {amount}{to_currency}"
             else:
                 # Get historical data for the source currency
-                data_labels, data_values = connect_db.get_db_data(from_currency)
+                data_labels, data_values = connect_db.get_db_data(from_currency,to_currency)
                 log.logger.info(f"Data retrieved successfully: {data_labels}, {data_values}")
                
                 if data_values:
