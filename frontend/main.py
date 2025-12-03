@@ -24,6 +24,8 @@ def index():
         to_cur = request.args.get('to_currency', 'VND')
         from_cur = request.args.get('from_currency', 'USD')
         history_data, history_labels = connect_db.get_db_data(from_cur, to_cur)
+        history_data = history_data[-7:]
+        history_labels = history_labels[-7:]
         return render_template("index.html", 
                                rates=rates,
                                amount=amount,
@@ -73,8 +75,8 @@ def index():
                     
                     if rate_index != -1:
                         # Get latest rate (first row)
-                        latest_row = data_values[0]
-                        rate = float(latest_row[rate_index])
+                        latest_row = data_values[-1]
+                        #rate = float(latest_row[rate_index])
                         converter_amount = amount * rate
                         result = f"{amount:,.2f} {from_currency} = {converter_amount:,.2f} {to_currency}"
 
