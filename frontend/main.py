@@ -23,7 +23,7 @@ def index():
     if request.method == "GET":
         to_cur = request.args.get('to_currency', 'VND')
         from_cur = request.args.get('from_currency', 'USD')
-        chart_labels, chart_data = connect_db.get_db_data(from_cur)
+        history_data, history_labels = connect_db.get_db_data(from_cur, to_cur)
         return render_template("index.html", 
                                rates=rates,
                                amount=amount,
@@ -80,8 +80,8 @@ def index():
 
                         # Prepare chart data (last 7 records)
                         # Data comes sorted by time DESC
-                        chart_labels = data_labels
-                        chart_data = data_values
+                        history_data = data_values[-7:]
+                        history_labels = data_labels[-7:]
 
                         # for row in chart_rows:
                         #     # row[1] is timestamp
@@ -108,8 +108,8 @@ def index():
                            to_currency=to_currency,
                            result=result,
                            error=error,
-                           history_labels=chart_labels,
-                           history_data=chart_data)
+                           history_labels=history_labels,
+                           history_data=history_data)
     
 if __name__ == "__main__":
 

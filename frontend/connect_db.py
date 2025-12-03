@@ -161,7 +161,7 @@ def update_db():
     except Exception as e:
         log.logger.error(f"Error updating database: {str(e)}")
 
-def get_db_data(a):
+def get_db_data(a,b):
     labels = []
     values = []
 
@@ -172,6 +172,7 @@ def get_db_data(a):
     }
 
     table_name = table_map.get(a)
+    column_name = f"rate_{b.lower()}"
     if not table_name:
         return [],[]
     conn = get_db_connection()
