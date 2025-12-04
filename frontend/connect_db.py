@@ -219,3 +219,21 @@ def get_db_data(a,b):
     return labels, values
         
 
+def add_unique_constraint():
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        tables = ["currency_usd", "currency_vnd", "currency_jpy"]
+        for table in tables:
+            query = f"""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_time
+                ON {table} (time::date);
+            """
+            cur.execute(query)
+        log.logger.info("Unique constraints added successfully")
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        log.logger.error(f"Error adding unique constraints: {str(e)}")

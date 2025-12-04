@@ -4,6 +4,7 @@ from flask import render_template, request, Flask
 
 
 connect_db.create_tables()
+connect_db.add_unique_constraint()
 connect_db.update_db()
 
 app = Flask(__name__,template_folder="../templates")
