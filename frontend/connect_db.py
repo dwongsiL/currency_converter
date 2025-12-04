@@ -228,7 +228,7 @@ def add_unique_constraint():
         for table in tables:
             query = f"""
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_{table}_time
-                ON {table} (time::date);
+                ON {table} ((time::date));
             """
             cur.execute(query)
         log.logger.info("Unique constraints added successfully")
