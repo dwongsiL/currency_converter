@@ -4,7 +4,7 @@ from flask import render_template, request, Flask
 
 
 connect_db.create_tables()
-connect_db.process_db()
+connect_db.update_db()
 
 app = Flask(__name__,template_folder="../templates")
 @app.route("/", methods=["GET", "POST"])

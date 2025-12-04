@@ -100,6 +100,26 @@ def create_tables():
     except Exception as e:
         log.logger.error(f"Error creating tables: {str(e)}")
 
+def upsert_data(cur, table_name, timestamp, base_col, base_valm, r1_col, r1_val, r2_col, r2_val):
+    check_query = f"SELECT id FROM {table_name} WHERE time::date = %s::date"
+    cur.execute(check_query, (timestamp,))
+    row = cur.fetchone()
+    if row:
+        row_id = row[0]
+        update_query = f"""
+            UPDATE{table_name}
+            SET time = %s, {base_col} = %s, {r1_col} = %s, {r2_col} = %s
+            WHERE id = %s
+            """
+    else:
+        insert_query = f"""
+            INSERT INTO {table_name} (time, {base_col}, {r1_col}, {r2_col})
+            VALUES (%s, %s, %s, %s)
+            """
+        cur.execute(insert_query, (timestamp, base_valm, r1_val, r2_val))
+    
+    
+
 def update_db():
     try:
         db = request_rate()
@@ -114,13 +134,7 @@ def update_db():
             timestamp = next((item['timestamp'] for item in rates), None)
             
             if rate_vnd and rate_jpy and timestamp:
-                cur.execute(
-                    '''
-                    INSERT INTO currency_usd (time, currency_usd, rate_vnd, rate_jpy)
-                    VALUES (%s, 1, %s, %s)
-                    ''',
-                    (timestamp, rate_vnd, rate_jpy)
-                )
+                upsert_data(cur, "currency_usd", timestamp, "currency_usd", 1, "rate_vnd", rate_vnd, "rate_jpy", rate_jpy)
 
         # Process VND
         if "VND" in db:
@@ -130,13 +144,7 @@ def update_db():
             timestamp = next((item['timestamp'] for item in rates), None)
             
             if rate_usd and rate_jpy and timestamp:
-                cur.execute(
-                    '''
-                    INSERT INTO currency_vnd (time, currency_vnd, rate_usd, rate_jpy)
-                    VALUES (%s, 1, %s, %s)
-                    ''',
-                    (timestamp, rate_usd, rate_jpy)
-                )
+                upsert_data(cur, "currency_vnd", timestamp, "currency_vnd", 1, "rate_usd", rate_usd, "rate_jpy", rate_jpy)
 
         # Process JPY
         if "JPY" in db:
@@ -146,21 +154,18 @@ def update_db():
             timestamp = next((item['timestamp'] for item in rates), None)
             
             if rate_usd and rate_vnd and timestamp:
-                cur.execute(
-                    '''
-                    INSERT INTO currency_jpy (time, currency_jpy, rate_usd, rate_vnd)
-                    VALUES (%s, 1, %s, %s)
-                    ''',
-                    (timestamp, rate_usd, rate_vnd)
-                )
+                upsert_data(cur, "currency_jpy", timestamp, "currency_jpy", 1, "rate_usd", rate_usd, "rate_vnd", rate_vnd)
 
         conn.commit()
-        cur.close()
-        conn.close()
         log.logger.info("Database updated successfully")
     except Exception as e:
-        log.logger.error(f"Error updating database: {str(e)}")
-
+        if conn:
+            conn.rollback()
+            log.logger.error(f"Error updating database: {str(e)}")
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
 def get_db_data(a,b):
     labels = []
     values = []
@@ -214,50 +219,3 @@ def get_db_data(a,b):
     return labels, values
         
 
-        
-    
-
-
-    
-def process_db():
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return
-        
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT MAX(time) FROM currency_usd")
-            row = cur.fetchall()
-            if row and row[0] and row[0][0] :
-                last_time = row[0][0]
-            else:
-                last_time = None
-            now = datetime.now()
-
-            should_update = False
-
-            if not last_time:
-                log.logger.info("No data in database, updating...")
-                should_update = True
-            elif (now -last_time) > timedelta(days=1):
-                log.logger.info("Data is older than 1 day, updating...")
-                should_update = True
-            else:
-                log.logger.info("Data is up to date, no update needed")
-                
-            if should_update:
-                update_db()
-                conn.commit()
-                log.logger.info("Database updated successfully")
-            else:
-                log.logger.info("Database is up to date, no update needed")
-        except Exception as e:
-            log.logger.error(f"Error processing database: {str(e)}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                conn.close()
-    except Exception as e:
-        log.logger.error(f"Error processing database: {str(e)}")
